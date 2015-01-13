@@ -1,6 +1,7 @@
 import urllib3
 import os
 import time
+import sys
 from HTMLParser import HTMLParser
 
 #Parser for proxy IP list
@@ -59,6 +60,46 @@ class LinksParser_port(HTMLParser):
     if self.recording:
       self.data.append(data)
 
+#Parser for video title
+class LinksParser_VideoTitle(HTMLParser):
+  def __init__(self):
+    HTMLParser.__init__(self)
+    self.recording = 0
+    self.data = []
+
+  def handle_starttag(self, tag, attributes):
+    if tag != 'h2':
+      return
+    if self.recording:
+      self.recording += 1
+      return
+    #for name, value in attributes:
+    #  if name == 'width' and value == '70':
+    #    break
+    #else:
+    #  return
+    self.recording = 1
+
+  def handle_endtag(self, tag):
+    if tag == 'h2' and self.recording:
+      self.recording -= 1
+
+  def handle_data(self, data):
+    if self.recording:
+      self.data.append(data)
+
+class GetVideoFilename():
+  def __init__(self):
+    self.http = urllib3.PoolManager()
+    self.filename = ''
+
+  def GetVideoTitle(self, inputURL):
+    parser_Title = LinksParser_VideoTitle()
+    content = self.http.request('GET', inputURL)
+    parser_Title.feed(content.data)
+    self.filename = parser_Title.data[0].decode('gbk')
+    self.filename = RemoveStringSpace(self.filename)
+
 #Get proxy server addr
 class GetAvailableProxyServer():
   def __init__(self):
@@ -69,16 +110,33 @@ class GetAvailableProxyServer():
     self.page = 1
     self.http = urllib3.PoolManager()
   #Is server alive?
-  def IsProxyServerAlive(self, IP, Port):
-    response = os.system("ping -c 2 "+IP+' -p '+ Port)
-    if response == 0:
-      print 'Trying '+IP+':'+Port+' Success'
-      return True
-    else:
-      #print 'Trying '+IP+':'+Port+' Fail'
-      return False
+  def IsProxyServerAlive(self, IP, Port, targetURL):
+    #Taiwan Proxy:
+    #IP='218.244.148.151'
+    #Port='8080'
+    Check = False
+    try:
+      # This returns a ProxyManager object which has the same API as other ConnectionPool objects.
+      http = urllib3.proxy_from_url('http://'+IP+':'+Port)
+      r = http.request('GET', targetURL)
+    except urllib3.HTTPError, e:
+        print 'Error code: ', e.code
+        return e.code
+    except Exception, detail:
+        print "ERROR:", detail
+        return False
+    return True
+    #Check = True
+    #response = os.system('env http_proxy=http://'+IP+':'+Port+' ping -c 2 '+targetURL)
+    #if response != 0:
+    #  return False
+    #else:
+    #  if Check == True:
+    #    return True
+    #  else:
+    #   return False
 
-  def GetProxyIPandPort(self):
+  def GetProxyIPandPort(self, targetURL):
     self.GetProxy = False
     self.currentPort = ''
     self.currentProxy = ''
@@ -93,7 +151,7 @@ class GetAvailableProxyServer():
       if len(parser_IP.data) == 0:
         break
       for i in range((len(parser_IP.data)-1), 0, -1):
-        if self.IsProxyServerAlive(parser_IP.data[i], parser_port.data[i]):
+        if self.IsProxyServerAlive(parser_IP.data[i], parser_port.data[i], targetURL):
           self.currentProxy = parser_IP.data[i]
           self.currentPort = parser_port.data[i]
           self.GetProxy = True
@@ -105,38 +163,48 @@ class GetAvailableProxyServer():
         break
       self.page+=1
 
+def RemoveStringSpace(inputSTR):
+  items = inputSTR.strip().split(' ')
+  outputSTR = ''
+  for i in range(0, len(items), 1):
+    outputSTR += items[i]
+  return outputSTR
 
 #Download partial from sohu TV
 def DownloadVideo(inputURL, IP, Port):
   #(http_proxy=http://218.60.56.95:8080 ./youtube-dl -g --get-filename http://tv.sohu.com/20140923/n404564864.shtml)
   print 'Start of getting URL : (http_proxy=http://'+IP+':'+Port+' ./youtube-dl -g --get-filename '+inputURL+') > source/source.txt'
-  #os.system('(http_proxy=http://'+IP+':'+Port+' ./youtube-dl -g --get-filename '+inputURL+') > source/source.txt')
+  os.system('(http_proxy=http://'+IP+':'+Port+' ./youtube-dl -g --get-filename '+inputURL+') > source/source.txt')
   print 'End of getting URL'
   with open('source/source.txt') as current_file:
     partial_array = current_file.readlines()
-  print len(partial_array)
+  GetVideoName = GetVideoFilename()
+  GetVideoName.GetVideoTitle(inputURL)
   for i in range(0, (len(partial_array)-1), 1):
     if i%2 == 1:
-      partial_name = partial_array[i]
-      print type(partial_name)
+      partial_element = partial_array[i].split('-')
+      partial_name = GetVideoName.filename+partial_element[1]
+      partial_name = partial_name.replace('\n', '')
       print partial_name+'/'+partial_url
-      print 'Start download '+str(i)+'/'+str(len(partial_array))+':wget -o '+str(partial_name)+' '+str(partial_url)
-      #result = os.system('wget -o '+partial_name+' '+partial_url)
-      print 'End of download'
+      print 'wget '+str(partial_url)+' --proxy=on -P ../Download -O '+str(partial_name)+' -c -e "http_proxy=http://'+str(IP)+':'+str(Port)+'"'
+      result = os.system('wget '+partial_url+' --proxy=on -P ../Download -O '+partial_name+' -c -e "http_proxy=http://'+IP+':'+Port+'"')
     else:
-      partial_url = partial_array[i]
+      partial_url = partial_array[i].replace('\n', '')
   return result
 
 #Main
+reload(sys)
+sys.setdefaultencoding('utf8')
 sohuURL = []
-sohuURL.append('http://tv.sohu.com/20130914/n386591920.shtml')
+sohuURL.append('http://tv.sohu.com/20140301/n395872561.shtml')
 for j in range(0, (len(sohuURL)), 1):
   ProxyServer = GetAvailableProxyServer()
-  ProxyServer.GetProxyIPandPort()
+  ProxyServer.GetProxyIPandPort(sohuURL[j])
   print ProxyServer.currentProxy+':'+ProxyServer.currentPort
   if ProxyServer.currentProxy != '':
     result = DownloadVideo(sohuURL[j], ProxyServer.currentProxy, ProxyServer.currentPort)
     print result
+  break
 
 
 
