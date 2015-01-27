@@ -206,7 +206,7 @@ class GetAvailableProxyServer():
       parser_port.feed(content.data)
       if len(parser_IP.data) == 0:
         break
-      for i in range((len(parser_IP.data)-1), 0, -1):
+      for i in range(0, len(parser_IP.data), 1):
         print 'tring '+parser_IP.data[i]+':'+parser_port.data[i]
         if parser_IP.data[i] in self.FailProxys:
           continue
@@ -269,7 +269,7 @@ class DownloadVideoViaSSH():
     os.system(cmd_to_execute)
     if len(partial_array) == 0:
       return True
-    for i in range(0, (len(partial_array)-1), 1):
+    for i in range(0, len(partial_array), 1):
       if i%2 == 1:
         partial_element = partial_array[i].split('-')
         partial_name = GetVideoName.filename+partial_element[1]
@@ -311,7 +311,7 @@ class DownloadVideoViaSSH():
       return True
     print 'Start download'
     print len(partial_array)
-    for i in range(0, (len(partial_array)-1), 1):
+    for i in range(0, len(partial_array), 1):
       if i%2 == 1:
         partial_element = partial_array[i].split('-')
         partial_name = GetVideoName.filename+partial_element[1]
@@ -385,7 +385,7 @@ class DownloadVideoViaSSH():
     #        if ssh_stdout.channel.recv_ready():
     #          break
     cmd_to_execute = 'rm source/'+partial_element[1]+'.txt'
-    ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(cmd_to_execute)
+    os.system(cmd_to_execute)
     #while not ssh_stdout.channel.exit_status_ready():
             # Only print data if there is data to read in the channel
     #        if ssh_stdout.channel.recv_ready():
@@ -410,7 +410,7 @@ class Job:
     ssh=DownloadVideoViaSSH(self.server, self.username, self.password)
     ProxyServer = GetAvailableProxyServer()
     proxyOK = False
-    for j in range(0, (len(sohuURL)-1), 1):
+    for j in range(0, len(sohuURL), 1):
       sohuURL[j] = sohuURL[j].replace('\n', '')
       if "#" not in sohuURL[j]:
         retry = True
@@ -442,6 +442,7 @@ sys.setdefaultencoding('utf8')
 sohuURLFileList = []
 sohuURLFileList.append('source/sohuURL_1.txt')
 sohuURLFileList.append('source/sohuURL_2.txt')
+sohuURLFileList.append('source/sohuURL_3.txt')
 ServerList = []
 UserNameList = []
 PassWordList = []
@@ -451,6 +452,11 @@ PassWordList.append('vm6vm0qo4')
 ServerList.append('192.168.0.108')
 UserNameList.append('alex')
 PassWordList.append('vuot9442')
+##bear
+ServerList.append('192.168.0.101')
+UserNameList.append('drama')
+PassWordList.append('up62u/3')
+##
 
 que = Queue()
 for i in range(2):  
