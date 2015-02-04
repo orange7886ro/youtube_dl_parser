@@ -459,7 +459,7 @@ PassWordList.append('up62u/3')
 ##
 
 que = Queue()
-for i in range(2):  
+for i in range(3):  
   que.put(Job(str(i+1), ServerList[i], UserNameList[i], PassWordList[i], sohuURLFileList[i]))
   
 print("\t[Info] Queue size={0}...".format(que.qsize()))  
