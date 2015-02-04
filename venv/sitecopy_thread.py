@@ -113,6 +113,33 @@ class LinksParser_port(HTMLParser):
     if self.recording:
       self.data.append(data)
 
+class LinksParser_Proxy(HTMLParser):
+  def __init__(self):
+    HTMLParser.__init__(self)
+    self.recording = 0
+    self.data = []
+
+  def handle_starttag(self, tag, attributes):
+    if tag != 'li':
+      return
+    if self.recording:
+      self.recording += 1
+      return
+    for element in attributes:
+      if 'proxy' in element:
+        break
+    else:
+      return
+    self.recording = 1
+
+  def handle_endtag(self, tag):
+    if tag == 'li' and self.recording:
+      self.recording -= 1
+
+  def handle_data(self, data):
+    if self.recording:
+      self.data.append(data)
+
 #Parser for video title
 class LinksParser_VideoTitle(HTMLParser):
   def __init__(self):
@@ -159,7 +186,8 @@ class GetAvailableProxyServer():
     self.currentPort = ''
     self.currentProxy = ''
     self.GetProxy = False
-    self.prefix = 'http://www.cooleasy.com/?act=list&port=&type=&country=China&page='
+    #self.prefix = 'http://www.cooleasy.com/?act=list&port=&type=&country=China&page='
+    self.prefix = 'http://proxy-list.org/english/search.php?search=CN&country=CN&type=any&port=any&ssl=any&p='
     self.page = 1
     self.http = urllib3.PoolManager()
     self.FailProxys = []
@@ -189,6 +217,23 @@ class GetAvailableProxyServer():
     #    return True
     #  else:
     #   return False
+
+  def IsProxyServerAlivefor_proxy_list_org(self, proxy, targetURL):
+    #Taiwan Proxy:
+    #IP='218.244.148.151'
+    #Port='8080'
+    Check = False
+    try:
+      # This returns a ProxyManager object which has the same API as other ConnectionPool objects.
+      http = urllib3.proxy_from_url('http://'+proxy)
+      r = http.request('GET', targetURL)
+    #except urllib3.HTTPError, e:
+    #    print 'Error code: ', e.code
+    #    return e.code
+    except Exception, detail:
+        print "ERROR:", detail
+        return False
+    return True
 
   def GetProxyIPandPort(self, targetURL):
     self.GetProxy = False
@@ -220,6 +265,44 @@ class GetAvailableProxyServer():
           self.FailProxys.append(parser_IP.data[i])
       parser_IP.close()
       parser_port.close()
+      if self.GetProxy:
+        #print self.currentProxy+':'+self.currentProt
+        break
+      self.page+=1
+
+  def GetUnBlockProxyIPandPort(self):
+    self.currentPort = '8888'
+    self.currentProxy = 'proxy.uku.im'
+    self.GetProxy = True
+
+  def GetProxyFrom_proxy_list_org(self, targetURL):
+    self.GetProxy = False
+    if self.currentProxy != '':
+      self.FailProxys.append(self.currentProxy)
+    self.currentPort = ''
+    self.currentProxy = ''
+    while True:
+      parser_proxy = LinksParser_Proxy()
+      currentURL = self.prefix+str(self.page)
+      content = self.http.request('GET', currentURL)
+      parser_proxy.feed(content.data)
+      if len(parser_proxy.data) == 0:
+        break
+      for i in range(0, len(parser_proxy.data), 1):
+        print 'tring '+parser_proxy.data[i]
+        if 'Proxy' in parser_proxy.data[i]:
+          continue
+        if parser_proxy.data[i] in self.FailProxys:
+          continue
+        if self.IsProxyServerAlivefor_proxy_list_org(parser_proxy.data[i], targetURL):
+          proxy_element = parser_proxy.data[i].split(':')
+          self.currentProxy = proxy_element[0]
+          self.currentPort = proxy_element[1]
+          self.GetProxy = True
+          break
+        else:
+          self.FailProxys.append(parser_proxy.data[i])
+      parser_proxy.close()
       if self.GetProxy:
         #print self.currentProxy+':'+self.currentProt
         break
@@ -299,6 +382,7 @@ class DownloadVideoViaSSH():
     partial_element = inputURL.split('tv.sohu.com/')
     partial_element[1]=partial_element[1].replace('/', '_')
     cmd_to_execute = '(http_proxy=http://'+IP+':'+Port+' ./youtube-dl -g --get-filename '+inputURL+') > source/'+partial_element[1]+'.txt'
+    print cmd_to_execute
     os.system(cmd_to_execute) 
     print 'End of getting URL'
     with open('source/'+partial_element[1]+'.txt') as current_file:
@@ -417,7 +501,9 @@ class Job:
         while retry:
           if proxyOK == False:
             print 'Start of getting proxy'
-            ProxyServer.GetProxyIPandPort(sohuURL[j])
+            #ProxyServer.GetUnBlockProxyIPandPort()
+            #ProxyServer.GetProxyIPandPort(sohuURL[j])
+            ProxyServer.GetProxyFrom_proxy_list_org(sohuURL[j])
           print ProxyServer.currentProxy+':'+ProxyServer.currentPort
           print 'End of getting proxy'
           if ProxyServer.currentProxy != '':
