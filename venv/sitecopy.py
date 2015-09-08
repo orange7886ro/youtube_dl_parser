@@ -173,30 +173,41 @@ def RemoveStringSpace(inputSTR):
 #Download partial from sohu TV
 def DownloadVideo(inputURL, IP, Port):
   #(http_proxy=http://218.60.56.95:8080 ./youtube-dl -g --get-filename http://tv.sohu.com/20140923/n404564864.shtml)
-  print 'Start of getting URL : (http_proxy=http://'+IP+':'+Port+' ./youtube-dl -g --get-filename '+inputURL+') > source/source.txt'
-  os.system('(http_proxy=http://'+IP+':'+Port+' ./youtube-dl -g --get-filename '+inputURL+') > source/source.txt')
+  print 'Start of getting URL'
+  partial_element = inputURL.split('tv.sohu.com/')
+  partial_element[1]=partial_element[1].replace('/', '_')
+  os.system('(http_proxy=http://'+IP+':'+Port+' ./youtube-dl -g --get-filename '+inputURL+') > source/'+partial_element[1]+'.txt')
   print 'End of getting URL'
-  with open('source/source.txt') as current_file:
+  with open('source/'+partial_element[1]+'.txt') as current_file:
     partial_array = current_file.readlines()
   GetVideoName = GetVideoFilename()
   GetVideoName.GetVideoTitle(inputURL)
+  os.system('mkdir Download/'+GetVideoName.filename)
+
   for i in range(0, (len(partial_array)-1), 1):
     if i%2 == 1:
       partial_element = partial_array[i].split('-')
       partial_name = GetVideoName.filename+partial_element[1]
       partial_name = partial_name.replace('\n', '')
       print partial_name+'/'+partial_url
-      print 'wget '+str(partial_url)+' --proxy=on -P ../Download -O '+str(partial_name)+' -c -e "http_proxy=http://'+str(IP)+':'+str(Port)+'"'
-      result = os.system('wget '+partial_url+' --proxy=on -P ../Download -O '+partial_name+' -c -e "http_proxy=http://'+IP+':'+Port+'"')
+      print 'wget -O Download/'+GetVideoName.filename+'/'+partial_name+' '+partial_url+' --proxy=on -c -e "http_proxy=http://'+IP+':'+Port+'"'
+      result = os.system('wget -O Download/'+GetVideoName.filename+'/'+partial_name+' '+partial_url+' --proxy=on -c -e "http_proxy=http://'+IP+':'+Port+'"')
     else:
       partial_url = partial_array[i].replace('\n', '')
+  #Combine video
+  #require: sudo apt-get install mencoder
+  #mencoder -ovc copy -oac mp3lame -idx -o out.mp4 *.mp4
+  partial_element = partial_name.split('.')
+  os.system('mencoder -ovc copy -oac mp3lame -idx -o Download/'+GetVideoName.filename+'/'+GetVideoName.filename+'.'+partial_element[(len(partial_element)-1)]+' Download/'+GetVideoName.filename+'/'+GetVideoName.filename+'*.'+partial_element[(len(partial_element)-1)])
   return result
 
 #Main
 reload(sys)
 sys.setdefaultencoding('utf8')
 sohuURL = []
-sohuURL.append('http://tv.sohu.com/20140301/n395872561.shtml')
+sohuURL.append('http://tv.sohu.com/20141120/n406218590.shtml')
+#sohuURL.append('http://tv.sohu.com/20121011/n354681393.shtml')
+#sohuURL.append('http://tv.sohu.com/20140301/n395872561.shtml')
 for j in range(0, (len(sohuURL)), 1):
   ProxyServer = GetAvailableProxyServer()
   ProxyServer.GetProxyIPandPort(sohuURL[j])
