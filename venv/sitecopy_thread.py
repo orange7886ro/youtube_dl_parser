@@ -173,9 +173,9 @@ class GetAvailableProxyServer():
       # This returns a ProxyManager object which has the same API as other ConnectionPool objects.
       http = urllib3.proxy_from_url('http://'+IP+':'+Port)
       r = http.request('GET', targetURL)
-    except urllib3.HTTPError, e:
-        print 'Error code: ', e.code
-        return e.code
+    #except urllib3.HTTPError, e:
+    #    print 'Error code: ', e.code
+    #    return e.code
     except Exception, detail:
         print "ERROR:", detail
         return False
@@ -207,6 +207,7 @@ class GetAvailableProxyServer():
       if len(parser_IP.data) == 0:
         break
       for i in range((len(parser_IP.data)-1), 0, -1):
+        print 'tring '+parser_IP.data[i]+':'+parser_port.data[i]
         if parser_IP.data[i] in self.FailProxys:
           continue
         #print parser_IP.data[i]+':'+parser_port.data[i]
@@ -292,7 +293,7 @@ class DownloadVideoViaSSH():
   #ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
   #ssh.connect(ServerIP, username=User, password=PassWord)
   #ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd_to_execute) 
-  def DownloadVideotest(self, inputURL, IP, Port , videodir):
+  def DownloadVideo(self, inputURL, IP, Port , videodir):
     #(http_proxy=http://218.60.56.95:8080 ./youtube-dl -g --get-filename http://tv.sohu.com/20140923/n404564864.shtml)
     print 'Start of getting URL'
     partial_element = inputURL.split('tv.sohu.com/')
@@ -319,31 +320,37 @@ class DownloadVideoViaSSH():
         videosize = 0
         retrytimer = 0
         while videosize == 0:
-          retrytimer += 1
-          cmd_to_execute = 'wget -O Downloads/'+GetVideoName.filename+'/'+partial_name+' '+partial_url+' --proxy=on -c -e "http_proxy=http://'+IP+':'+Port+'"'
-          #cmd_to_execute = 'curl -O Downloads/'+GetVideoName.filename+'/'+partial_name+' '+partial_url+' -c -e "http_proxy=http://'+IP+':'+Port+'"'
-          #print cmd_to_execute
-          print cmd_to_execute
-          ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(cmd_to_execute) 
-          #time.sleep(80)
-          # Wait for the command to terminate
-          time.sleep(1)
-          while not ssh_stdout.channel.exit_status_ready():
-              # Only print data if there is data to read in the channel
-              if ssh_stdout.channel.recv_ready():
-                  # Print data from stdout
-                  print ssh_stdout.channel.recv(1024)
-          #      print 'partial ok'
-          #      break
-          #print ssh_stdout.read()
-          #print ssh_stderr.read()
-          print 'Downloads/'+GetVideoName.filename+'/'+partial_name
-          videoInfo = self.sftp.stat('Downloads/'+GetVideoName.filename+'/'+partial_name)
-          videosize = videoInfo.st_size
-          print videosize
-          if videosize == 0:
-            print 'Empty video, wget retrying'
-          if retrytimer == 3:
+          try:
+            retrytimer += 1
+            cmd_to_execute = 'wget -O Downloads/'+GetVideoName.filename+'/'+partial_name+' '+partial_url+' --proxy=on -c -e "http_proxy=http://'+IP+':'+Port+'"'
+            #cmd_to_execute = 'curl -O Downloads/'+GetVideoName.filename+'/'+partial_name+' '+partial_url+' -c -e "http_proxy=http://'+IP+':'+Port+'"'
+            #print cmd_to_execute
+            print cmd_to_execute
+            ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(cmd_to_execute) 
+            #time.sleep(80)
+            # Wait for the command to terminate
+            time.sleep(1)
+            while not ssh_stdout.channel.exit_status_ready():
+                # Only print data if there is data to read in the channel
+                if ssh_stdout.channel.recv_ready():
+                    # Print data from stdout
+                    print ssh_stdout.channel.recv(1024)
+            #      print 'partial ok'
+            #      break
+            #print ssh_stdout.read()
+            #print ssh_stderr.read()
+            print 'Downloads/'+GetVideoName.filename+'/'+partial_name
+            videoInfo = self.sftp.stat('Downloads/'+GetVideoName.filename+'/'+partial_name)
+            videosize = videoInfo.st_size
+            print videosize
+            if videosize == 0:
+              print 'Empty video, wget retrying'
+            if retrytimer == 3:
+              print 'Retry fail, get another proxy server'
+              return True
+          except Exception, detail:
+            print "ERROR:", detail
+            videosize = 0
             return True
       else:
         partial_url = partial_array[i].replace('\n', '')
@@ -372,8 +379,8 @@ class DownloadVideoViaSSH():
           # Print data from stdout
           print ssh_stdout.channel.recv(1024), 
     #      break
-    #cmd_to_execute = 'rm Downloads/'+GetVideoName.filename+' -rf'
-    #ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(cmd_to_execute)
+    cmd_to_execute = 'rm Downloads/'+GetVideoName.filename+' -rf'
+    ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(cmd_to_execute)
     #while not ssh_stdout.channel.exit_status_ready():
     #        if ssh_stdout.channel.recv_ready():
     #          break
@@ -414,7 +421,7 @@ class Job:
           print ProxyServer.currentProxy+':'+ProxyServer.currentPort
           print 'End of getting proxy'
           if ProxyServer.currentProxy != '':
-            retry = ssh.DownloadVideotest(sohuURL[j], ProxyServer.currentProxy, ProxyServer.currentPort, self.videodir)
+            retry = ssh.DownloadVideo(sohuURL[j], ProxyServer.currentProxy, ProxyServer.currentPort, self.videodir)
             if retry == False:
               proxyOK = True
             else:
