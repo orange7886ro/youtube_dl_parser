@@ -1,2 +1,15 @@
-#Combine video
-#require: sudo apt-get install mencoder
+#What server need
+
+#[1]Combine video
+#require: 
+#sudo apt-get install mencoder
+
+#[2]SSH bandwidth control
+#request: 
+#sudo apt-get install cstream
+#sudo apt-get install pv
+
+#[3]Codec is needed
+#require:
+#sudo apt-get install ubuntu-restricted-extras
+#sudo apt-get install vlc
